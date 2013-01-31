@@ -45,6 +45,9 @@ while (1) {
     elsif ($contents =~ /^\\newpage/) {
         $contents =~ s/\\newpage//;
     }
+    elsif ($contents =~ /^\\smallskip/) {
+        $contents =~ s/\\smallskip//;
+    }
     elsif ($contents =~ /^\\hyperref\[(.+?)\]\{(.+?)\}/) {
         $contents =~ s/^\\hyperref\[(.+?)\]\{(.+?)\}//;
         print $outfile '<a href="'.$1.'">'.encode_entities($2).'</a>';
