@@ -10,26 +10,34 @@ use File::Slurp qw/slurp/;
 my $input = shift or die 'no input file specified';
 my $output = shift or die 'no output file specified';
 my $contents = slurp($input) or die 'failed slurping ' . $input;
+my $extra_data = shift || '{}';
+$extra_data = eval('my $x = ' . $extra_data);
+
 open my $outfile, '>', $output or die 'failed opening ' . $output . ' for writing';
 
 html_start();
 
 my $par_started = 0;
+my $section_counter = 1;
 
 while (1) {
     if ($contents =~ /^$/) {
         last;
     }
     elsif ($contents =~ /^\\chapter{(.+?)}/) {
-        print $outfile "<h1>$1</h1>\n";
-        $contents =~ s/\\chapter{(.+?)}//;
+        print $outfile "<h1>".encode_entities($1)."</h1>\n";
+        $contents =~ s/^\\chapter{(.+?)}//;
+    }
+    elsif ($contents =~ /^\\section\[.+?\]\{(.+?)\}/) {
+        handle_section();
+        $contents =~ s/^\\section\[.+?\]\{(.+?)\}//;
     }
     elsif ($contents =~ /^\\section{(.+?)}/) {
-        print $outfile "<h2>$1</h2>\n";
-        $contents =~ s/\\section{(.+?)}//;
+        handle_section();
+        $contents =~ s/^\\section{(.+?)}//;
     }
-    elsif ($contents =~ /^\\begin{lstlisting}(.+?)\\end{lstlisting}/s) {
-        print $outfile "<pre>$1</pre>\n";
+    elsif ($contents =~ /^\\begin{lstlisting}(?:\[.+?\])?(.+?)\\end{lstlisting}/s) {
+        print $outfile "<pre>".encode_entities($1)."</pre>\n";
         $contents =~ s/\\begin{lstlisting}(.+?)\\end{lstlisting}//s;
     }
     elsif ($contents =~ /^\\label{(.+?)}/) {
@@ -56,7 +64,36 @@ while (1) {
         $contents =~ s/^\\ref{(.+?)}//;
     }
     elsif ($contents =~ /^(.)/) {
-        if ($1 eq "\\") {
+        if ($1 eq "\$") {
+            $contents =~ s/\$//;
+            if ($contents =~ /^\\sim/) {
+                $contents =~ s/^\\sim//;
+                print $outfile "~";
+            }
+            elsif ($contents =~ /^e\^2/) {
+                $contents =~ s/^e\^2//;
+                print $outfile "e<sup>2</sup>";
+            }
+            elsif ($contents =~ /^e\^2/) {
+                $contents =~ s/^e\^2//;
+                print $outfile "e<sup>2</sup>";
+            }
+            elsif ($contents =~ /^2\^n/) {
+                $contents =~ s/^2\^n//;
+                print $outfile "2<sup>n</sup>";
+            }
+            else {
+                print "unrecognized tex math command -->'" . substr($contents, 0, 100) . "'<--\n";
+                exit;
+            }
+
+            unless ($contents =~ /^\$/) {
+                print "unrecognized math expression --> '" . substr($contents, 0, 100) . "'<--\n";
+                exit;
+            }
+            $contents =~ s/^\$//;
+        }
+        elsif ($1 eq "\\") {
             $contents =~ s/\\//;
             if ($contents =~ /^verb(.)(.+?)(\1)/) {
                 print $outfile "<code>".encode_entities($2)."</code>";
@@ -84,6 +121,14 @@ while (1) {
             }
             elsif ($contents =~ /^index{(.+?)}/) {
                 $contents =~ s/^index{(.+?)}//;
+            }
+            elsif ($contents =~ /^href{(.+?)}{(.+?)}/) {
+                print $outfile '<a href="'.$1.'">'.encode_entities($2).'</a>';
+                $contents =~ s/^href{(.+?)}{(.+?)}//;
+            }
+            elsif ($contents =~ /^_/) {
+                print $outfile "_";
+                $contents =~ s/^_//;
             }
             else {
                 print "unrecognized tex command -->'" . substr($contents, 0, 100) . "'<--\n";
@@ -136,3 +181,13 @@ sub html_end {
     print $outfile "</html>\n";
 }
 
+sub handle_section {
+    if (exists $extra_data->{chapter}) {
+        print $outfile "<h2>$extra_data->{chapter}.$section_counter ".encode_entities($1)."</h2>\n";
+        $section_counter++;
+    }
+    else {
+        print $outfile "<h2>".encode_entities($1)."</h2>\n";
+    }
+
+}
