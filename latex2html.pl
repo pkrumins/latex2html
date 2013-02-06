@@ -9,11 +9,13 @@ use File::Slurp qw/slurp/;
 
 my $input = shift or die 'no input file specified';
 my $output = shift or die 'no output file specified';
+my $index = shift or die 'no index file specified';
 my $contents = slurp($input) or die 'failed slurping ' . $input;
 my $extra_data = shift || '{}';
 $extra_data = eval('my $x = ' . $extra_data);
 
 open my $outfile, '>', $output or die 'failed opening ' . $output . ' for writing';
+open my $indexfile, '>>', $index or die 'failed opening ' . $index . ' for writing';
 
 html_start();
 
@@ -42,6 +44,12 @@ while (1) {
     }
     elsif ($contents =~ /^\\label{(.+?)}/) {
         $contents =~ s/\\label{(.+?)}//;
+        if (exists $extra_data->{chapter}) {
+            print $indexfile "$extra_data->{chapter}.$section_counter: $1\n";
+        }
+        else {
+            print $indexfile "$input: $1\n";
+        }
     }
     elsif ($contents =~ /^\n/) {
         if ($par_started) {
@@ -62,6 +70,7 @@ while (1) {
     }
     elsif ($contents =~ /^\\ref{(.+?)}/) {
         $contents =~ s/^\\ref{(.+?)}//;
+        print $outfile "-ref-to-$1-ref-to-";
     }
     elsif ($contents =~ /^(.)/) {
         if ($1 eq "\$") {
@@ -172,7 +181,7 @@ code {
 }
 </style>
 CSS
-    print $outfile "</head>";
+    print $outfile "</head>\n";
     print $outfile "<body>\n";
 }
 
